@@ -9,7 +9,7 @@ const VIEW_WIDTH = 640;
 const VIEW_HEIGHT = 480;
 const GROUND_START = 300;
 const FOV = 45;
-const VIEW_ANGLE = 45;
+const VIEW_ANGLE = 65;
 const CAMERA_NEAR = 20;
 const CAMERA_FAR = 350;
 const DEG_2_RAD = Math.PI / 180;
@@ -19,6 +19,9 @@ const SCREEN_GROUND_HEIGHT = (VIEW_HEIGHT - GROUND_START);
 const CAMERA_HEIGHT = 50;
 const NEAR_BOTTOM_OFFSET = CAMERA_HEIGHT - (CAMERA_NEAR * Math.sin(VIEW_ANGLE * DEG_2_RAD));
 const VIEW_ANGLE_STEP = (VIEW_ANGLE / 2) / SCREEN_GROUND_HEIGHT;
+// const NEAR_PLANE_WIDTH = CAMERA_NEAR * Math.tan(FOV / 2 * DEG_2_RAD);
+// const FAR_PLANE_WIDTH = CAMERA_FAR * Math.tan(FOV / 2 * DEG_2_RAD);
+// const X_SCALE_STEP = (FAR_PLANE_WIDTH - NEAR_PLANE_WIDTH) / SCREEN_GROUND_HEIGHT;
 const DEBUG_DISPLAY = document.getElementById('log');
 const PIXEL_WHITE = [255, 255, 255, 255];
 
@@ -118,6 +121,8 @@ const snapVector = (x, y) => [
   Math.round(y)
 ]
 
+const perpendicular = (x, y) => [y, -x];
+
 const clamp = (value, min, max) => {
   return Math.max(min, Math.min(value, max));
 }
@@ -161,24 +166,40 @@ const worldToGround = (x, y) => {
 // }
 
 const renderGround = () => {
-  const xCentre = VIEW_WIDTH / 2;
-  const halfFov = FOV;
+  const cameraForward = getCameraForward();
+  const cameraLeft = perpendicular(...cameraForward);
+  const cameraRight = [
+    -cameraLeft[0],
+    -cameraLeft[1],
+  ];
 
   const cameraOnGround = worldToGround(...cameraPos.position);
-  drawCircle(...snapVector(cameraOnGround), 5);
+  drawCircle(...snapVector(...cameraOnGround), 5, 'blue');
+  // drawCircle(...snapVector(...add(
+  //   ...cameraOnGround,
+  //   ...multiplyScalar(...cameraForward, 50),
+  // )), 5, 'red');
+  // drawCircle(...snapVector(...add(
+  //   ...cameraOnGround,
+  //   ...multiplyScalar(...cameraLeft, 50),
+  // )), 5, 'green');
+  // drawCircle(...snapVector(...add(
+  //   ...cameraOnGround,
+  //   ...multiplyScalar(...cameraRight, 50),
+  // )), 5, 'orange');
 
-  for (let x = 0; x < VIEW_WIDTH; x++) {
-    // screenRay = normalise(...rotateVector(...screenRay, SCREEN_FOV_STEP));
-    const xAngle = ((x - xCentre) / xCentre) * halfFov;
-    const ray = rotateVector(...VECTOR_UP, cameraPos.rotation + xAngle);
-    const cosAngle = Math.cos(xAngle * DEG_2_RAD);
-    const nearDistance = CAMERA_NEAR / cosAngle;
-    // const farDistance = CAMERA_FAR / cosAngle;
+  // for (let x = 0; x < VIEW_WIDTH; x++) {
+  //   // screenRay = normalise(...rotateVector(...screenRay, SCREEN_FOV_STEP));
+  //   const xAngle = ((x - xCentre) / xCentre) * halfFov;
+  //   const ray = rotateVector(...VECTOR_UP, cameraPos.rotation + xAngle);
+  //   const cosAngle = Math.cos(xAngle * DEG_2_RAD);
+  //   const nearDistance = CAMERA_NEAR / cosAngle;
+  //   // const farDistance = CAMERA_FAR / cosAngle;
 
-    const nearPoint = add(
-      ...multiplyScalar(...ray, nearDistance),
-      ...cameraOnGround
-    );
+  //   const nearPoint = add(
+  //     ...multiplyScalar(...ray, nearDistance),
+  //     ...cameraOnGround
+  //   );
     // const farPoint = add(
     //   ...multiplyScalar(...ray, farDistance),
     //   ...cameraOnGround
@@ -186,33 +207,65 @@ const renderGround = () => {
     // drawCircle(...nearPoint, 5);
     // drawCircle(...farPoint, 5);
 
-    // starting at the top of the ground section
-    for (let y = 0; y < SCREEN_GROUND_HEIGHT; y++) {
-      const cameraY = -y;
-      const worldY = CAMERA_HEIGHT + cameraY;
-      const yAngle = 180 - (y * VIEW_ANGLE_STEP);
+    // start at the bottom of the screen (near) and work our way up to far
+    for (let y = SCREEN_GROUND_HEIGHT; y > 0; y--) {
+      // This should be scaled into camera space?
+      const worldY = CAMERA_HEIGHT - y;
+      const viewAngle = (y * VIEW_ANGLE_STEP);
+      const distanceAngle = 180 - viewAngle;
+
       // if (yAngle > 30) {
       //   continue;
       // }
-      const distance = worldY * Math.tan(yAngle * DEG_2_RAD);
-      const groundPos = add(
-        ...nearPoint,
-        ...multiplyScalar(...ray, distance),
+      const distanceFromNear = worldY * Math.tan(distanceAngle * DEG_2_RAD);
+      const distance = CAMERA_NEAR + distanceFromNear;
+
+      if (distance > CAMERA_FAR) {
+        continue;
+      }
+
+      const viewWorldWidth = distance * Math.tan(FOV / 2 * DEG_2_RAD)
+      // const scaledWidth = NEAR_PLANE_WIDTH * xScale;
+      const halfWidth = (viewWorldWidth / 2);
+      const xStep = viewWorldWidth / VIEW_WIDTH;
+      const centrePoint = add(
+        ...cameraOnGround,
+        ...multiplyScalar(...cameraForward, distance)
       );
+      // drawCircle(...snapVector(...centrePoint), 5);
+      const leftPoint = add(
+        ...centrePoint,
+        ...multiplyScalar(...cameraLeft, halfWidth),
+      );
+      // drawCircle(...snapVector(...leftPoint), 5, 'green');
+
+      // const groundPos = add(
+      //   ...nearPoint,
+      //   ...multiplyScalar(...ray, distance),
+      // );
       // const ratio = 0.5 + (y - GROUND_START) / VIEW_HEIGHT;
       // const yStep = multiplyScalar(...screenRay, SCREEN_Y_STEP * yScale);
       // groundPos = add(...groundPos, ...yStep);
       // const rawCoord = (x * VIEW_WIDTH) + y;
       // if (!sample || rawCoord === sample) {
         // sample = rawCoord + 1;
-      if (x % 50 && y === 100) {
-        drawCircle(...snapVector(...multiplyScalar(...groundPos, 1.5)), 5);
-      }
+
       // }
-      setPixel(x, VIEW_HEIGHT - y, ...getPixel(trackData, ...snapVector(...groundPos)));
+
+      for (let x = 0; x < VIEW_WIDTH; x++) {
+        const groundPos = add(
+          ...leftPoint,
+          ...multiplyScalar(...cameraRight, xStep * x),
+        );
+        // if (x % 50 && y === 100) {
+          drawCircle(...snapVector(...groundPos), 5);
+        // }
+        setPixel(x, VIEW_HEIGHT - y, ...getPixel(trackData, ...snapVector(...groundPos)));
+
+      }
       
     }
-  }
+  // }
 }
 
 const render = () => {
