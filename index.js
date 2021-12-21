@@ -13,22 +13,22 @@ const VIEW_ANGLE = 65;
 const CAMERA_NEAR = 20;
 const CAMERA_FAR = 350;
 const DEG_2_RAD = Math.PI / 180;
-const SCREEN_X_STEP = VIEW_WIDTH / FOV;
-const SCREEN_FOV_STEP = FOV / VIEW_WIDTH;
 const SCREEN_GROUND_HEIGHT = (VIEW_HEIGHT - GROUND_START);
 const CAMERA_HEIGHT = 10;
-// const NEAR_BOTTOM_OFFSET = CAMERA_HEIGHT - (CAMERA_NEAR * Math.sin(VIEW_ANGLE * DEG_2_RAD));
 const NEAR_PLANE_HEIGHT = 2 * CAMERA_NEAR * Math.tan(VIEW_ANGLE / 2 * DEG_2_RAD);
 const VIEW_Y_SCALE = NEAR_PLANE_HEIGHT / VIEW_HEIGHT;
 const VIEW_ANGLE_STEP = (VIEW_ANGLE / 2) / SCREEN_GROUND_HEIGHT;
-// const NEAR_PLANE_WIDTH = CAMERA_NEAR * Math.tan(FOV / 2 * DEG_2_RAD);
-// const FAR_PLANE_WIDTH = CAMERA_FAR * Math.tan(FOV / 2 * DEG_2_RAD);
-// const X_SCALE_STEP = (FAR_PLANE_WIDTH - NEAR_PLANE_WIDTH) / SCREEN_GROUND_HEIGHT;
 const DEBUG_DISPLAY = document.getElementById('log');
 const PIXEL_WHITE = [255, 255, 255, 255];
 
 const VECTOR_UP = [0, -1];
 
+let canvas;
+let ctx;
+let imgData;
+let lastUpdateTime;
+let trackData;
+let cameraPos = {  position: [0, 0], rotation: 0 };
 const logValues = {};
 
 const log = (id, value) => {
@@ -91,13 +91,6 @@ const normalise = (x, y) => {
   return divideScalar(x, y, mag);
 }
 
-let canvas;
-let ctx;
-let imgData;
-let lastUpdateTime;
-let trackData;
-let cameraPos = {  position: [0, 0], rotation: 0 };
-
 const getCameraForward = () => rotateVector(...VECTOR_UP, cameraPos.rotation);
 
 const drawCircle = (x, y, radius, color = "red") => {
@@ -106,17 +99,6 @@ const drawCircle = (x, y, radius, color = "red") => {
   ctx.arc(x, y, radius, 0, 360 * DEG_2_RAD);
   ctx.stroke();
 }
-
-// const getPixelFromInt32 = (value) => {
-//   const r = value & 0x00ff0000;
-//   const g = value & 0x0000ff00;
-//   const b = value & 0x000000ff;
-//   return [r, g, b, 255];
-// }
-
-// const getBitmapPixel = (bitmap, x, y) => {
-//   return getPixelFromInt32(bitmap[(y * VIEW_WIDTH) + x]);
-// }
 
 const snapVector = (x, y) => [
   Math.round(x),
@@ -158,15 +140,6 @@ const worldToGround = (x, y) => {
   return add(x, y, ...TRACK_CENTRE);
 }
 
-// const sample = (ratio) => Math.random() < ratio;
-// const sampleIndices = (howMany, count) => {
-//   const indices = [];
-//   for (const i = 0; i < howMany; i++) {
-//     indices.push(Math.round(Math.random() * (count - 1)));
-//   }
-//   return indices;
-// }
-
 const renderGround = () => {
   const cameraForward = getCameraForward();
   const cameraLeft = perpendicular(...cameraForward);
@@ -176,98 +149,62 @@ const renderGround = () => {
   ];
 
   const cameraOnGround = worldToGround(...cameraPos.position);
-  drawCircle(...snapVector(...cameraOnGround), 5, 'blue');
-  // drawCircle(...snapVector(...add(
-  //   ...cameraOnGround,
-  //   ...multiplyScalar(...cameraForward, 50),
-  // )), 5, 'red');
-  // drawCircle(...snapVector(...add(
-  //   ...cameraOnGround,
-  //   ...multiplyScalar(...cameraLeft, 50),
-  // )), 5, 'green');
-  // drawCircle(...snapVector(...add(
-  //   ...cameraOnGround,
-  //   ...multiplyScalar(...cameraRight, 50),
-  // )), 5, 'orange');
 
-  // for (let x = 0; x < VIEW_WIDTH; x++) {
-  //   // screenRay = normalise(...rotateVector(...screenRay, SCREEN_FOV_STEP));
-  //   const xAngle = ((x - xCentre) / xCentre) * halfFov;
-  //   const ray = rotateVector(...VECTOR_UP, cameraPos.rotation + xAngle);
-  //   const cosAngle = Math.cos(xAngle * DEG_2_RAD);
-  //   const nearDistance = CAMERA_NEAR / cosAngle;
-  //   // const farDistance = CAMERA_FAR / cosAngle;
+  // debugging: show camera position
+  // drawCircle(...snapVector(...cameraOnGround), 5, 'blue');
 
-  //   const nearPoint = add(
-  //     ...multiplyScalar(...ray, nearDistance),
-  //     ...cameraOnGround
-  //   );
-    // const farPoint = add(
-    //   ...multiplyScalar(...ray, farDistance),
-    //   ...cameraOnGround
-    // );
-    // drawCircle(...nearPoint, 5);
-    // drawCircle(...farPoint, 5);
+  // start at the top of the screen (far) and work our way down to near,
+  // rendering each row of pixels
+  for (let y = 0; y < SCREEN_GROUND_HEIGHT; y++) {
+    const worldY = CAMERA_HEIGHT - (y * VIEW_Y_SCALE);
 
-    // start at the top of the screen (far) and work our way down to near
-    for (let y = 0; y < SCREEN_GROUND_HEIGHT; y++) {
-      const worldY = CAMERA_HEIGHT - (y * VIEW_Y_SCALE);
-      const viewAngle = 90 + (y * VIEW_ANGLE_STEP);
-      const distanceAngle = 180 - viewAngle;
+    // Calculate the forward viewing angle relative to the ground.
+    // 90 degrees is exactly forward, 180 degrees is pointing down at the ground.
+    // We start at 90 degrees at the top of the screen and stop at 90 + (VIEW_ANGLE / 2),
+    // at the bottom of the screen.
+    const viewAngle = 90 + (y * VIEW_ANGLE_STEP);
+    const distanceAngle = 180 - viewAngle;
 
-      // if (yAngle > 30) {
-      //   continue;
-      // }
-      // Should not be using worldy
-      const distanceFromNear = worldY * Math.tan(distanceAngle * DEG_2_RAD);
-      const distance = CAMERA_NEAR + distanceFromNear;
+    // Calculate the projection distance from the near plane at the centre of the camera
+    const distanceFromNear = worldY * Math.tan(distanceAngle * DEG_2_RAD);
+    const distance = CAMERA_NEAR + distanceFromNear;
 
-      if (distance > CAMERA_FAR || distance < CAMERA_NEAR) {
-        continue;
-      }
-
-      const viewWorldWidth = distance * Math.tan(FOV / 2 * DEG_2_RAD)
-      // const scaledWidth = NEAR_PLANE_WIDTH * xScale;
-      const halfWidth = (viewWorldWidth / 2);
-      const xStep = viewWorldWidth / VIEW_WIDTH;
-      const centrePoint = add(
-        ...cameraOnGround,
-        ...multiplyScalar(...cameraForward, distance)
-      );
-      // drawCircle(...snapVector(...centrePoint), 5);
-      const leftPoint = add(
-        ...centrePoint,
-        ...multiplyScalar(...cameraLeft, halfWidth),
-      );
-      // drawCircle(...snapVector(...leftPoint), 5, 'green');
-
-      // const groundPos = add(
-      //   ...nearPoint,
-      //   ...multiplyScalar(...ray, distance),
-      // );
-      // const ratio = 0.5 + (y - GROUND_START) / VIEW_HEIGHT;
-      // const yStep = multiplyScalar(...screenRay, SCREEN_Y_STEP * yScale);
-      // groundPos = add(...groundPos, ...yStep);
-      // const rawCoord = (x * VIEW_WIDTH) + y;
-      // if (!sample || rawCoord === sample) {
-        // sample = rawCoord + 1;
-
-      // }
-
-      for (let x = 0; x < VIEW_WIDTH; x++) {
-        const groundPos = add(
-          ...leftPoint,
-          ...multiplyScalar(...cameraRight, xStep * x),
-        );
-        // if (x % 50 && y === 100) {
-          // drawCircle(...snapVector(...groundPos), 5, distance > 0 ? 'blue' : 'red');
-        // }
-        setPixel(x, GROUND_START + y, ...getPixel(trackData, ...snapVector(...groundPos)));
-
-      }
-      
+    if (distance > CAMERA_FAR || distance < CAMERA_NEAR) {
+      continue;
     }
-  // }
+
+    // Calculate the width of this row of pixels in world space based on our FOV and distance
+    // from the camera.
+    const viewWorldWidth = distance * Math.tan(FOV / 2 * DEG_2_RAD)
+    const halfWidth = (viewWorldWidth / 2);
+    const xScale = viewWorldWidth / VIEW_WIDTH;
+
+    // Project forward from the camera using this row's distance
+    const centrePoint = add(
+      ...cameraOnGround,
+      ...multiplyScalar(...cameraForward, distance)
+    );
+
+    // Move to the leftmost point of our projection in world coordinates
+    const leftPoint = add(
+      ...centrePoint,
+      ...multiplyScalar(...cameraLeft, halfWidth),
+    );
+
+    // Work our way from left to right across the row using our projected left point
+    // and scaled size of this row in the world
+    for (let x = 0; x < VIEW_WIDTH; x++) {
+      const projectedPosition = add(
+        ...leftPoint,
+        ...multiplyScalar(...cameraRight, xScale * x),
+      );
+
+      // debugging: show the projection of screen pixels
+      // drawCircle(...snapVector(...groundPos), 5, distance > 0 ? 'blue' : 'red');
+
+      setPixel(x, GROUND_START + y, ...getPixel(trackData, ...snapVector(...projectedPosition)));
+    }
+  }
 }
 
 const render = () => {
