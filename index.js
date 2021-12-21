@@ -12,6 +12,7 @@ const FOV = 45;
 const VIEW_ANGLE = 65;
 const CAMERA_NEAR = 20;
 const CAMERA_FAR = 350;
+const CAMERA_PITCH = 90;
 const DEG_2_RAD = Math.PI / 180;
 const SCREEN_GROUND_HEIGHT = (VIEW_HEIGHT - GROUND_START);
 const CAMERA_HEIGHT = 10;
@@ -160,13 +161,13 @@ const renderGround = () => {
 
     // Calculate the forward viewing angle relative to the ground.
     // 90 degrees is exactly forward, 180 degrees is pointing down at the ground.
-    // We start at 90 degrees at the top of the screen and stop at 90 + (VIEW_ANGLE / 2),
+    // We start at CAMERA_PITCH degrees at the top of the screen and stop at CAMERA_PITCH + (VIEW_ANGLE / 2),
     // at the bottom of the screen.
-    const viewAngle = 90 + (y * VIEW_ANGLE_STEP);
-    const distanceAngle = 180 - viewAngle;
+    const viewAngle = CAMERA_PITCH + (y * VIEW_ANGLE_STEP);
 
-    // Calculate the projection distance from the near plane at the centre of the camera
-    const distanceFromNear = worldY * Math.tan(distanceAngle * DEG_2_RAD);
+    // Using the inverse of the pitch angle and height off the ground to calculate distance from
+    // where this row's projection ray intersects the near plane.
+    const distanceFromNear = worldY * Math.tan((180 - viewAngle) * DEG_2_RAD);
     const distance = CAMERA_NEAR + distanceFromNear;
 
     if (distance > CAMERA_FAR || distance < CAMERA_NEAR) {
