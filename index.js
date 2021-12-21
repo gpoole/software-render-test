@@ -7,15 +7,17 @@ const TRACK_CENTRE = [
 
 const VIEW_WIDTH = 640;
 const VIEW_HEIGHT = 480;
-const GROUND_START = 400;
-const FOV = 60;
-const NEAR_PLANE_ANGLE = 180 - (180 - FOV) / 2;
-const CAMERA_NEAR = 10;
-const CAMERA_FAR = 450;
+const GROUND_START = 300;
+const FOV = 45;
+const VIEW_ANGLE = 45;
+const CAMERA_NEAR = 20;
+const CAMERA_FAR = 350;
 const DEG_2_RAD = Math.PI / 180;
 const SCREEN_X_STEP = VIEW_WIDTH / FOV;
 const SCREEN_FOV_STEP = FOV / VIEW_WIDTH;
-const SCREEN_Y_STEP = (CAMERA_FAR - CAMERA_NEAR) / (VIEW_HEIGHT - GROUND_START);
+const SCREEN_GROUND_HEIGHT = (VIEW_HEIGHT - GROUND_START);
+const CAMERA_HEIGHT = 50;
+const VIEW_ANGLE_STEP = VIEW_ANGLE / SCREEN_GROUND_HEIGHT;
 const DEBUG_DISPLAY = document.getElementById('log');
 const PIXEL_WHITE = [255, 255, 255, 255];
 
@@ -151,37 +153,50 @@ const worldToGround = (x, y) => {
 let sample = 0;
 
 const renderGround = () => {
-  // Start with a ray pointing along the leftmost edge of the view frustum
-  let screenRay = normalise(...rotateVector(...VECTOR_UP, cameraPos.rotation - (FOV / 2)));
-  // Create a ray pointing across the leftmost ray at the angle of the near plane
-  // FIXME: not really near, it's near minus whatever the angle loss is but does it matter?
-  let crossDirection = normalise(...rotateVector(...screenRay, NEAR_PLANE_ANGLE));
-  let xStep = multiplyScalar(...crossDirection, SCREEN_X_STEP * 0.01);
-  let currentNearPos = add(
-    ...worldToGround(...cameraPos.position),
-    ...multiplyScalar(...screenRay, CAMERA_NEAR)
-  );
-  drawCircle(...worldToGround(...cameraPos.position), 5);
-  drawCircle(...currentNearPos, 5)
-  drawCircle(...add(...currentNearPos, ...xStep), 5)
+  const xCentre = VIEW_WIDTH / 2;
+  const halfFov = FOV;
 
   for (let x = 0; x < VIEW_WIDTH; x++) {
-    screenRay = normalise(...rotateVector(...screenRay, SCREEN_FOV_STEP));
-    currentNearPos = add(...currentNearPos, ...xStep);
-    // drawCircle(...currentNearPos, 5)
-    let groundPos = [...currentNearPos];
-    // drawCircle(...add(...currentNearPos, ...multiplyScalar(...screenRay, SCREEN_Y_STEP * 5)), 5, 'blue');
-    for (let y = VIEW_HEIGHT; y > GROUND_START; y--) {
-      const ratio = 0.5 + (y - GROUND_START) / VIEW_HEIGHT;
-      const yStep = multiplyScalar(...screenRay, SCREEN_Y_STEP / ratio);
-      groundPos = add(...groundPos, ...yStep);
+    // screenRay = normalise(...rotateVector(...screenRay, SCREEN_FOV_STEP));
+    const xAngle = ((x - xCentre) / xCentre) * halfFov;
+    const ray = rotateVector(...VECTOR_UP, cameraPos.rotation + xAngle);
+    const cosAngle = Math.cos(xAngle * DEG_2_RAD);
+    const nearDistance = CAMERA_NEAR / cosAngle;
+    // const farDistance = CAMERA_FAR / cosAngle;
+    const cameraOnGround = worldToGround(...cameraPos.position);
+
+    const nearPoint = add(
+      ...multiplyScalar(...ray, nearDistance),
+      ...cameraOnGround
+    );
+    // const farPoint = add(
+    //   ...multiplyScalar(...ray, farDistance),
+    //   ...cameraOnGround
+    // );
+    // drawCircle(...nearPoint, 5);
+    // drawCircle(...farPoint, 5);
+
+    for (let y = 0; y < SCREEN_GROUND_HEIGHT; y++) {
+      const yAngle = (y * VIEW_ANGLE_STEP);
+      // if (yAngle > 30) {
+      //   continue;
+      // }
+      const distance = CAMERA_HEIGHT * Math.tan(yAngle * DEG_2_RAD);
+      const groundPos = add(
+        ...nearPoint,
+        ...multiplyScalar(...ray, distance),
+      );
+      // const ratio = 0.5 + (y - GROUND_START) / VIEW_HEIGHT;
+      // const yStep = multiplyScalar(...screenRay, SCREEN_Y_STEP * yScale);
+      // groundPos = add(...groundPos, ...yStep);
       // const rawCoord = (x * VIEW_WIDTH) + y;
       // if (!sample || rawCoord === sample) {
         // sample = rawCoord + 1;
-        // drawCircle(...snapVector(groundPos), 5, toRgba(...getPixel(trackData, ...snapVector(groundPos))));
+        // drawCircle(...snapVector(...groundPos), 5);
       // }
+      const screenY = VIEW_HEIGHT - y;
 
-      setPixel(x, y, ...getPixel(trackData, ...snapVector(...groundPos)));
+      setPixel(x, screenY, ...getPixel(trackData, ...snapVector(...groundPos)));
       
     }
   }
