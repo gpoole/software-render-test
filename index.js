@@ -17,7 +17,8 @@ const SCREEN_X_STEP = VIEW_WIDTH / FOV;
 const SCREEN_FOV_STEP = FOV / VIEW_WIDTH;
 const SCREEN_GROUND_HEIGHT = (VIEW_HEIGHT - GROUND_START);
 const CAMERA_HEIGHT = 50;
-const VIEW_ANGLE_STEP = VIEW_ANGLE / SCREEN_GROUND_HEIGHT;
+const NEAR_BOTTOM_OFFSET = CAMERA_HEIGHT - (CAMERA_NEAR * Math.sin(VIEW_ANGLE * DEG_2_RAD));
+const VIEW_ANGLE_STEP = (VIEW_ANGLE / 2) / SCREEN_GROUND_HEIGHT;
 const DEBUG_DISPLAY = document.getElementById('log');
 const PIXEL_WHITE = [255, 255, 255, 255];
 
@@ -150,11 +151,21 @@ const worldToGround = (x, y) => {
   return add(x, y, ...TRACK_CENTRE);
 }
 
-let sample = 0;
+// const sample = (ratio) => Math.random() < ratio;
+// const sampleIndices = (howMany, count) => {
+//   const indices = [];
+//   for (const i = 0; i < howMany; i++) {
+//     indices.push(Math.round(Math.random() * (count - 1)));
+//   }
+//   return indices;
+// }
 
 const renderGround = () => {
   const xCentre = VIEW_WIDTH / 2;
   const halfFov = FOV;
+
+  const cameraOnGround = worldToGround(...cameraPos.position);
+  drawCircle(...snapVector(cameraOnGround), 5);
 
   for (let x = 0; x < VIEW_WIDTH; x++) {
     // screenRay = normalise(...rotateVector(...screenRay, SCREEN_FOV_STEP));
@@ -163,7 +174,6 @@ const renderGround = () => {
     const cosAngle = Math.cos(xAngle * DEG_2_RAD);
     const nearDistance = CAMERA_NEAR / cosAngle;
     // const farDistance = CAMERA_FAR / cosAngle;
-    const cameraOnGround = worldToGround(...cameraPos.position);
 
     const nearPoint = add(
       ...multiplyScalar(...ray, nearDistance),
@@ -176,12 +186,15 @@ const renderGround = () => {
     // drawCircle(...nearPoint, 5);
     // drawCircle(...farPoint, 5);
 
+    // starting at the top of the ground section
     for (let y = 0; y < SCREEN_GROUND_HEIGHT; y++) {
-      const yAngle = (y * VIEW_ANGLE_STEP);
+      const cameraY = -y;
+      const worldY = CAMERA_HEIGHT + cameraY;
+      const yAngle = 180 - (y * VIEW_ANGLE_STEP);
       // if (yAngle > 30) {
       //   continue;
       // }
-      const distance = CAMERA_HEIGHT * Math.tan(yAngle * DEG_2_RAD);
+      const distance = worldY * Math.tan(yAngle * DEG_2_RAD);
       const groundPos = add(
         ...nearPoint,
         ...multiplyScalar(...ray, distance),
@@ -192,11 +205,11 @@ const renderGround = () => {
       // const rawCoord = (x * VIEW_WIDTH) + y;
       // if (!sample || rawCoord === sample) {
         // sample = rawCoord + 1;
-        // drawCircle(...snapVector(...groundPos), 5);
+      if (x % 50 && y === 100) {
+        drawCircle(...snapVector(...multiplyScalar(...groundPos, 1.5)), 5);
+      }
       // }
-      const screenY = VIEW_HEIGHT - y;
-
-      setPixel(x, screenY, ...getPixel(trackData, ...snapVector(...groundPos)));
+      setPixel(x, VIEW_HEIGHT - y, ...getPixel(trackData, ...snapVector(...groundPos)));
       
     }
   }
