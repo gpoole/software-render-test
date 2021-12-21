@@ -9,15 +9,17 @@ const VIEW_WIDTH = 640;
 const VIEW_HEIGHT = 480;
 const GROUND_START = 300;
 const FOV = 45;
-const VIEW_ANGLE = 65;
+const VIEW_ANGLE = 45;
 const CAMERA_NEAR = 20;
 const CAMERA_FAR = 350;
 const DEG_2_RAD = Math.PI / 180;
 const SCREEN_X_STEP = VIEW_WIDTH / FOV;
 const SCREEN_FOV_STEP = FOV / VIEW_WIDTH;
 const SCREEN_GROUND_HEIGHT = (VIEW_HEIGHT - GROUND_START);
-const CAMERA_HEIGHT = 50;
-const NEAR_BOTTOM_OFFSET = CAMERA_HEIGHT - (CAMERA_NEAR * Math.sin(VIEW_ANGLE * DEG_2_RAD));
+const CAMERA_HEIGHT = 10;
+// const NEAR_BOTTOM_OFFSET = CAMERA_HEIGHT - (CAMERA_NEAR * Math.sin(VIEW_ANGLE * DEG_2_RAD));
+const NEAR_PLANE_HEIGHT = 2 * CAMERA_NEAR * Math.tan(VIEW_ANGLE / 2 * DEG_2_RAD);
+const VIEW_Y_SCALE = NEAR_PLANE_HEIGHT / VIEW_HEIGHT;
 const VIEW_ANGLE_STEP = (VIEW_ANGLE / 2) / SCREEN_GROUND_HEIGHT;
 // const NEAR_PLANE_WIDTH = CAMERA_NEAR * Math.tan(FOV / 2 * DEG_2_RAD);
 // const FAR_PLANE_WIDTH = CAMERA_FAR * Math.tan(FOV / 2 * DEG_2_RAD);
@@ -207,20 +209,20 @@ const renderGround = () => {
     // drawCircle(...nearPoint, 5);
     // drawCircle(...farPoint, 5);
 
-    // start at the bottom of the screen (near) and work our way up to far
-    for (let y = SCREEN_GROUND_HEIGHT; y > 0; y--) {
-      // This should be scaled into camera space?
-      const worldY = CAMERA_HEIGHT - y;
-      const viewAngle = (y * VIEW_ANGLE_STEP);
+    // start at the top of the screen (far) and work our way down to near
+    for (let y = 0; y < SCREEN_GROUND_HEIGHT; y++) {
+      const worldY = CAMERA_HEIGHT - (y * VIEW_Y_SCALE);
+      const viewAngle = 90 + (y * VIEW_ANGLE_STEP);
       const distanceAngle = 180 - viewAngle;
 
       // if (yAngle > 30) {
       //   continue;
       // }
+      // Should not be using worldy
       const distanceFromNear = worldY * Math.tan(distanceAngle * DEG_2_RAD);
       const distance = CAMERA_NEAR + distanceFromNear;
 
-      if (distance > CAMERA_FAR) {
+      if (distance > CAMERA_FAR || distance < 0) {
         continue;
       }
 
@@ -258,9 +260,9 @@ const renderGround = () => {
           ...multiplyScalar(...cameraRight, xStep * x),
         );
         // if (x % 50 && y === 100) {
-          drawCircle(...snapVector(...groundPos), 5);
+          // drawCircle(...snapVector(...groundPos), 5, distance > 0 ? 'blue' : 'red');
         // }
-        setPixel(x, VIEW_HEIGHT - y, ...getPixel(trackData, ...snapVector(...groundPos)));
+        setPixel(x, SCREEN_GROUND_HEIGHT + y, ...getPixel(trackData, ...snapVector(...groundPos)));
 
       }
       
