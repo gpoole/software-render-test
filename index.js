@@ -9,7 +9,7 @@ const VIEW_WIDTH = 640;
 const VIEW_HEIGHT = 480;
 const GROUND_START = 300;
 const FOV = 45;
-const VIEW_ANGLE = 45;
+const VIEW_ANGLE = 65;
 const CAMERA_NEAR = 20;
 const CAMERA_FAR = 350;
 const DEG_2_RAD = Math.PI / 180;
@@ -222,7 +222,7 @@ const renderGround = () => {
       const distanceFromNear = worldY * Math.tan(distanceAngle * DEG_2_RAD);
       const distance = CAMERA_NEAR + distanceFromNear;
 
-      if (distance > CAMERA_FAR || distance < 0) {
+      if (distance > CAMERA_FAR || distance < CAMERA_NEAR) {
         continue;
       }
 
@@ -262,7 +262,7 @@ const renderGround = () => {
         // if (x % 50 && y === 100) {
           // drawCircle(...snapVector(...groundPos), 5, distance > 0 ? 'blue' : 'red');
         // }
-        setPixel(x, SCREEN_GROUND_HEIGHT + y, ...getPixel(trackData, ...snapVector(...groundPos)));
+        setPixel(x, GROUND_START + y, ...getPixel(trackData, ...snapVector(...groundPos)));
 
       }
       
