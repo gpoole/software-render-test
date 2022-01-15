@@ -6,6 +6,12 @@ export const createProjective3x3Matrix = (rotation, translation, elation, scale 
   elation[0], elation[1], 1
 ]
 
+export const createScaleMatrix = (scale) => [
+  scale, scale, 0,
+  scale, scale, 0,
+  0, 0, 1
+]
+
 export const createRotationMatrix = (rotation) => [
   Math.cos(rotation * DEG_2_RAD), -Math.sin(rotation * DEG_2_RAD), 0,
   Math.sin(rotation * DEG_2_RAD), Math.cos(rotation * DEG_2_RAD), 0,

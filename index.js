@@ -1,3 +1,5 @@
+import { getPixel, loadImageData, setPixel } from './texture'
+
 /* globals Image */
 const TRACK_WIDTH = 800
 const TRACK_HEIGHT = 507
@@ -21,7 +23,6 @@ const NEAR_PLANE_HEIGHT = 2 * CAMERA_NEAR * Math.tan(VIEW_ANGLE / 2 * DEG_2_RAD)
 const VIEW_Y_SCALE = NEAR_PLANE_HEIGHT / VIEW_HEIGHT
 const VIEW_ANGLE_STEP = (VIEW_ANGLE / 2) / SCREEN_GROUND_HEIGHT
 const DEBUG_DISPLAY = document.getElementById('log')
-const PIXEL_WHITE = [255, 255, 255, 255]
 
 const VECTOR_UP = [0, -1]
 
@@ -35,23 +36,6 @@ const logValues = {}
 
 const log = (id, value) => {
   logValues[id] = value
-}
-
-const loadImageData = (url) => {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const { width, height } = img
-      const loaderCanvas = document.createElement('canvas')
-      const loaderCtx = loaderCanvas.getContext('2d')
-      loaderCanvas.width = width
-      loaderCanvas.height = height
-      loaderCtx.drawImage(img, 0, 0, width, height)
-      resolve(loaderCtx.getImageData(0, 0, width, height))
-    }
-    img.onerror = reject
-    img.src = url
-  })
 }
 
 const rotateVector = (x, y, angle) => {
@@ -108,29 +92,6 @@ const snapVector = (x, y) => [
 ]
 
 const perpendicular = (x, y) => [y, -x]
-
-const getPixelIndex = (x, y) => {
-  if (x < 0 || y < 0 || x > TRACK_WIDTH || y > TRACK_HEIGHT) {
-    return -1
-  }
-  return (y * VIEW_WIDTH * 4) + (x * 4)
-}
-
-const setPixel = (x, y, r, g, b, a) => {
-  const i = getPixelIndex(x, y)
-  imgData.data[i] = r
-  imgData.data[i + 1] = g
-  imgData.data[i + 2] = b
-  imgData.data[i + 3] = a
-}
-
-const getPixel = (imageData, x, y) => {
-  const i = getPixelIndex(x, y)
-  if (i === -1) {
-    return PIXEL_WHITE
-  }
-  return imageData.data.slice(i, i + 4)
-}
 
 const toRgba = (r, g, b, a) => `rgba(${r}, ${g}, ${b}, ${a})`
 
@@ -200,7 +161,7 @@ const renderGround = () => {
       // debugging: show the projection of screen pixels
       // drawCircle(...snapVector(...groundPos), 5, distance > 0 ? 'blue' : 'red');
 
-      setPixel(x, GROUND_START + y, ...getPixel(trackData, ...snapVector(...projectedPosition)))
+      setPixel(imgData, x, GROUND_START + y, ...getPixel(trackData, ...snapVector(...projectedPosition)))
     }
   }
 }

@@ -17,8 +17,9 @@ let lastUpdateTime
 // const elation = [0, 0]
 const translation = [0, 0]
 let rotation = 0
-const height = 50
-const width = 50
+const height = 300
+const width = VIEW_WIDTH
+let scale = 1
 // const fov = 45
 let near = 1
 let far = 200
@@ -95,6 +96,7 @@ const render = () => {
   const perspective = createPerspectiveMatrix(near, far)
   const translate = createTranslationMatrix(translation)
   const rotate = createRotationMatrix(rotation)
+  // const scaleMatrix = createScaleMatrix(scale)
   // const perspective = createProjective3x3Matrix(rotation, translation, elation);
   // const transform = [
   //   // Affect x using the x and y components, add transform
@@ -106,15 +108,14 @@ const render = () => {
   // ];
   const view = multiply3x3Matrix(translate, rotate)
   const viewPerspective = multiply3x3Matrix(perspective, view)
-  // const viewMatrix = multiply3x3Matrix(translate, rotate);
 
   // Camera planes
   ctx.strokeStyle = 'red'
   ctx.beginPath()
-  const topLeft = projectVector2([-width, -height], perspective)
-  const topRight = projectVector2([width, -height], perspective)
-  const bottomRight = projectVector2([width, 0], perspective)
-  const bottomLeft = projectVector2([-width, 0], perspective)
+  const topLeft = projectVector2([-width, -height], viewPerspective)
+  const topRight = projectVector2([width, -height], viewPerspective)
+  const bottomRight = projectVector2([width, 0], viewPerspective)
+  const bottomLeft = projectVector2([-width, 0], viewPerspective)
   ctx.moveTo(...topLeft)
   ctx.lineTo(...topRight)
   ctx.lineTo(...bottomRight)
@@ -147,6 +148,7 @@ const createControls = () => {
   addControl(createSlider('rotation', rotation, [-360, 360], 1, value => rotation = value))
   addControl(createSlider('near', near, [0, VIEW_HEIGHT * 2], 1, value => near = value))
   addControl(createSlider('far', far, [0, VIEW_HEIGHT * 2], 1, value => far = value))
+  addControl(createSlider('scale', scale, [0, 5], 0.1, value => scale = value))
   // addControl(createSlider("height", height, [0, 1000], 1, value => height = value));
   // addControl(createSlider("width", width, [0, 1000], 1, value => width = value));
   // addControl(createSlider("fov", fov, [0, 90], 1, value => fov = value));
