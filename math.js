@@ -44,6 +44,11 @@ export const addVector2 = (a, b) => [
   a[1] + b[1]
 ]
 
+export const snapVector2 = (vec) => [
+  Math.round(vec[0]),
+  Math.round(vec[1])
+]
+
 export const multiply3x3Matrix = (a, b) => {
   const size = 3
   const out = []
@@ -61,17 +66,17 @@ export const multiply3x3Matrix = (a, b) => {
   return out
 }
 
-export const projectVector2 = (vector, matrix) => {
-  const [x, y, w] = vectorBy3x3Matrix(vector, matrix)
+// Projects input 2d vector to coordinates in the space specified by the output dimensions via the projection matrix
+export const projectVector2 = (vector, projectionMatrix, outputDimensions) => {
+  const [x, y, w] = vectorBy3x3Matrix(vector, projectionMatrix)
   const [nx, ny] = [
     x / w,
     y / w
   ]
 
-  // FIXME: this shouldn't be hardcoded like that
   return [
-    nx + 320,
-    ny + 240
+    nx + (outputDimensions[0] / 2),
+    ny + (outputDimensions[1] / 2)
   ]
 }
 

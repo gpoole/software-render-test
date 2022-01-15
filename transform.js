@@ -4,11 +4,13 @@
 //   }
 // }
 
-import { createPerspectiveMatrix, createRotationMatrix, createTranslationMatrix, DEG_2_RAD, multiply3x3Matrix, projectVector2 } from './math'
+import { createPerspectiveMatrix, createProjective3x3Matrix, createRotationMatrix, createTranslationMatrix, DEG_2_RAD, multiply3x3Matrix, projectVector2, snapVector2 } from './math'
+import { getPixel, loadImageData, setPixel } from './texture'
 
 const VIEW_WIDTH = 640
-
 const VIEW_HEIGHT = 480
+const SCREEN_DIMENSIONS = [VIEW_WIDTH, VIEW_HEIGHT]
+const VIEW_GROUND_STARTS_AT = 300
 
 let canvas
 let ctx
@@ -23,6 +25,9 @@ let scale = 1
 // const fov = 45
 let near = 1
 let far = 200
+let viewGroundLayer
+let groundTexture
+let groundTextureDimensions
 
 const drawCircle = (x, y, radius, color = 'red') => {
   ctx.strokeStyle = color
@@ -90,12 +95,26 @@ const createSlider = (name, initialValue, [min, max], step, onChange) => {
   return content
 }
 
+const renderGround = (viewToGround) => {
+  if (!groundTexture) {
+    return
+  }
+  for (let y = VIEW_GROUND_STARTS_AT; y < VIEW_HEIGHT; y++) {
+    for (let x = 0; x < VIEW_WIDTH; x++) {
+      const groundPosition = projectVector2([x, y], viewToGround, groundTextureDimensions)
+      const groundTexturePosition = snapVector2(groundPosition)
+      const sampledPixel = getPixel(groundTexture, ...groundTexturePosition)
+      setPixel(viewGroundLayer, x, y, ...sampledPixel)
+    }
+  }
+}
+
 const render = () => {
   ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT)
 
-  const perspective = createPerspectiveMatrix(near, far)
-  const translate = createTranslationMatrix(translation)
-  const rotate = createRotationMatrix(rotation)
+  // const perspective = createPerspectiveMatrix(near, far)
+  // const translate = createTranslationMatrix(translation)
+  // const rotate = createRotationMatrix(rotation)
   // const scaleMatrix = createScaleMatrix(scale)
   // const perspective = createProjective3x3Matrix(rotation, translation, elation);
   // const transform = [
@@ -106,16 +125,21 @@ const render = () => {
   //   // Affect w using the x and y components, add 1
   //   0, 1, 0
   // ];
-  const view = multiply3x3Matrix(translate, rotate)
-  const viewPerspective = multiply3x3Matrix(perspective, view)
+  // const viewToGround = multiply3x3Matrix(perspective, multiply3x3Matrix(translate, rotate))
+  const viewToGround = createProjective3x3Matrix(rotation, translation, [0, near / far])
 
-  // Camera planes
+  renderGround(viewToGround)
+
+  // Render the ground texture
+  ctx.putImageData(viewGroundLayer, 0, 0)
+
+  // Camera plane debugging
   ctx.strokeStyle = 'red'
   ctx.beginPath()
-  const topLeft = projectVector2([-width, -height], viewPerspective)
-  const topRight = projectVector2([width, -height], viewPerspective)
-  const bottomRight = projectVector2([width, 0], viewPerspective)
-  const bottomLeft = projectVector2([-width, 0], viewPerspective)
+  const topLeft = projectVector2([-width, height], viewToGround, SCREEN_DIMENSIONS)
+  const topRight = projectVector2([width, height], viewToGround, SCREEN_DIMENSIONS)
+  const bottomRight = projectVector2([width, 0], viewToGround, SCREEN_DIMENSIONS)
+  const bottomLeft = projectVector2([-width, 0], viewToGround, SCREEN_DIMENSIONS)
   ctx.moveTo(...topLeft)
   ctx.lineTo(...topRight)
   ctx.lineTo(...bottomRight)
@@ -123,8 +147,8 @@ const render = () => {
   ctx.lineTo(...topLeft)
   ctx.stroke()
 
-  const fixedObject = [10, -100]
-  drawCircle(...projectVector2(fixedObject, viewPerspective), 5, 'red')
+  const fixedObject = [10, 100]
+  drawCircle(...projectVector2(fixedObject, viewToGround, SCREEN_DIMENSIONS), 5, 'red')
 }
 
 const update = (time) => {
@@ -154,6 +178,11 @@ const createControls = () => {
   // addControl(createSlider("fov", fov, [0, 90], 1, value => fov = value));
 }
 
+const loadAssets = async () => {
+  groundTexture = await loadImageData('/assets/whacky-tracky.png')
+  groundTextureDimensions = [groundTexture.width, groundTexture.height]
+}
+
 const init = () => {
   canvas = document.getElementById('view')
 
@@ -162,7 +191,10 @@ const init = () => {
 
   ctx = canvas.getContext('2d')
 
+  viewGroundLayer = ctx.createImageData(VIEW_WIDTH, VIEW_HEIGHT)
+
   createControls()
+  loadAssets()
 
   window.requestAnimationFrame(update)
 }
