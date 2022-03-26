@@ -7,8 +7,8 @@ export const createProjective3x3Matrix = (rotation, translation, elation, scale 
 ]
 
 export const createScaleMatrix = (scale) => [
-  scale, scale, 0,
-  scale, scale, 0,
+  scale, 0, 0,
+  0, scale, 0,
   0, 0, 1
 ]
 
@@ -80,10 +80,11 @@ export const projectVector2 = (vector, projectionMatrix, outputDimensions) => {
     y / w
   ]
 
-  return [
-    nx + (outputDimensions[0] / 2),
-    ny + (outputDimensions[1] / 2)
-  ]
+  return [nx, ny]
+  // return [
+  //   nx + (outputDimensions[0] / 2),
+  //   ny + (outputDimensions[1] / 2)
+  // ]
 }
 
 export const clamp = (value, min, max) => {
