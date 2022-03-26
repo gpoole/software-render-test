@@ -11,22 +11,21 @@ const VIEW_WIDTH = 640
 const VIEW_HEIGHT = 480
 const SCREEN_DIMENSIONS = [VIEW_WIDTH, VIEW_HEIGHT]
 const VIEW_GROUND_STARTS_AT = 300
+const GROUND_RENDER_HEIGHT = VIEW_HEIGHT - VIEW_GROUND_STARTS_AT
 
 let canvas
 let ctx
 // let transform;
 let lastUpdateTime
-// This looks good but then the ground appears in the sky, there's something to do with the far plane distance
-// or maybe where on the screen we start drawing from that affects what this value can be
-const elation = [0, 0.0028]
+// the perspective is eventually calculated using x/(elation[1] * y + 1) and y / (elation[1] * y + 1),
+// so the vanishing point is where y * elation[1] approaches 1, hence:
+const elation = [0, -(1 / GROUND_RENDER_HEIGHT)]
 const translation = [0, 0]
 let rotation = 0
-const height = 300
-const width = VIEW_WIDTH
 let scale = 0.045
 // const fov = 45
-const near = 1
-const far = 200
+// const near = 1
+// const far = 200
 let viewGroundLayer
 let groundTexture
 let groundTextureDimensions
@@ -101,10 +100,12 @@ const renderGround = (viewToGround) => {
   if (!groundTexture) {
     return
   }
-  for (let y = 0; y < VIEW_HEIGHT; y++) {
+
+  const halfWidth = VIEW_WIDTH / 2
+  for (let y = 0; y < GROUND_RENDER_HEIGHT; y++) {
+    // Start half a screen to the left of the origin
     for (let x = 0; x < VIEW_WIDTH; x++) {
-      // Move away from the camera
-      const groundPosition = projectVector2([x, -y], viewToGround)
+      const groundPosition = projectVector2([x - halfWidth, y], viewToGround)
       const groundTexturePosition = snapVector2(groundPosition)
       const sampledPixel = getPixel(groundTexture, ...groundTexturePosition)
       // Start at the bottom of the screen and draw up
@@ -118,11 +119,11 @@ const render = () => {
   const translationMat = createTranslationMatrix(translation)
   const elationMat = createElationMatrix(elation)
   const rotationMat = createRotationMatrix(rotation)
-  const scaleMat = createScaleMatrix(scale)
+  const scaleMat = createScaleMatrix([scale, scale])
 
   const viewToCamera = multiply3x3Matrices(
     // move to centre of the ground texture
-    createTranslationMatrix([groundTexture?.width / 2, groundTexture?.height / 2]),
+    createTranslationMatrix([-groundTexture?.width / 2, -groundTexture?.height / 2]),
 
     // apply perspective transformations
     translationMat,
@@ -137,11 +138,8 @@ const render = () => {
   ctx.putImageData(viewGroundLayer, 0, 0)
 
   // Camera plane debugging
-  ctx.strokeStyle = 'red'
-  ctx.beginPath()
-
   const halfWidth = VIEW_WIDTH / 2
-  const top = -VIEW_HEIGHT
+  const top = GROUND_RENDER_HEIGHT - 1
   const left = -halfWidth
   const right = halfWidth
   const bottom = 0
@@ -149,12 +147,19 @@ const render = () => {
   const topRight = projectVector2([right, top], viewToCamera)
   const bottomRight = projectVector2([right, bottom], viewToCamera)
   const bottomLeft = projectVector2([left, bottom], viewToCamera)
+
+  ctx.strokeStyle = 'red'
+  ctx.beginPath()
   ctx.moveTo(...topLeft)
   ctx.lineTo(...topRight)
   ctx.lineTo(...bottomRight)
   ctx.lineTo(...bottomLeft)
   ctx.lineTo(...topLeft)
   ctx.stroke()
+
+  // console.log(top * elation[1])
+  // console.log(topLeft)
+  ctx.fillText(`${top * elation[1]}`, ...topLeft)
 
   drawCircle(...projectVector2([0, 0], viewToCamera), 5, 'red')
   // 100 units in front of the camera

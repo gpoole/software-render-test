@@ -7,8 +7,8 @@ export const createProjective3x3Matrix = (rotation, translation, elation, scale 
 ]
 
 export const createScaleMatrix = (scale) => [
-  scale, 0, 0,
-  0, scale, 0,
+  scale[0], 0, 0,
+  0, scale[1], 0,
   0, 0, 1
 ]
 
@@ -30,6 +30,8 @@ export const createElationMatrix = (elation) => [
   elation[0], elation[1], 1
 ]
 
+// FIXME: this is wrong, it should be based on the vanishing point being where
+// y * elation[1] = 1 (where 1 is the bottom right cell)
 export const createPerspectiveMatrix = (near, far) => [
   1, 0, 0,
   0, 1, 0,
@@ -84,9 +86,10 @@ export const multiply3x3Matrix = (a, b) => {
 // Projects input 2d vector to coordinates in the space specified by the output dimensions via the projection matrix
 export const projectVector2 = (vector, projectionMatrix) => {
   const [x, y, w] = vectorBy3x3Matrix(vector, projectionMatrix)
+  // w is inverted because -y is "forward", so x gets flipped otherwise
   return [
-    x / w,
-    y / w
+    x / -w,
+    y / -w
   ]
 }
 
