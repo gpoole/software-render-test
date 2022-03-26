@@ -4,7 +4,7 @@
 //   }
 // }
 
-import { createPerspectiveMatrix, createProjective3x3Matrix, createRotationMatrix, createTranslationMatrix, DEG_2_RAD, multiply3x3Matrix, projectVector2, snapVector2 } from './math'
+import { createElationMatrix, createPerspectiveMatrix, createProjective3x3Matrix, createRotationMatrix, createTranslationMatrix, DEG_2_RAD, multiply3x3Matrix, projectVector2, snapVector2 } from './math'
 import { getPixel, loadImageData, setPixel } from './texture'
 
 const VIEW_WIDTH = 640
@@ -16,15 +16,15 @@ let canvas
 let ctx
 // let transform;
 let lastUpdateTime
-// const elation = [0, 0]
+const elation = [0, 0]
 const translation = [0, 0]
 let rotation = 0
 const height = 300
 const width = VIEW_WIDTH
 let scale = 1
 // const fov = 45
-let near = 1
-let far = 200
+const near = 1
+const far = 200
 let viewGroundLayer
 let groundTexture
 let groundTextureDimensions
@@ -99,12 +99,13 @@ const renderGround = (viewToGround) => {
   if (!groundTexture) {
     return
   }
-  for (let y = VIEW_GROUND_STARTS_AT; y < VIEW_HEIGHT; y++) {
+  // for (let y = VIEW_GROUND_STARTS_AT; y < VIEW_HEIGHT; y++) {
+  for (let y = 0; y < VIEW_HEIGHT; y++) {
     for (let x = 0; x < VIEW_WIDTH; x++) {
-      const groundPosition = projectVector2([x, y], viewToGround, groundTextureDimensions)
+      const groundPosition = projectVector2([x, -y], viewToGround, groundTextureDimensions)
       const groundTexturePosition = snapVector2(groundPosition)
       const sampledPixel = getPixel(groundTexture, ...groundTexturePosition)
-      setPixel(viewGroundLayer, x, y, ...sampledPixel)
+      setPixel(viewGroundLayer, x, VIEW_HEIGHT - y, ...sampledPixel)
     }
   }
 }
@@ -126,9 +127,14 @@ const render = () => {
   //   0, 1, 0
   // ];
   // const viewToGround = multiply3x3Matrix(perspective, multiply3x3Matrix(translate, rotate))
-  const viewToGround = createProjective3x3Matrix(rotation, translation, [0, near / far])
+  const translationMat = createTranslationMatrix(translation)
+  const elationMat = createElationMatrix(elation)
+  const rotationMat = createRotationMatrix(rotation)
+  const screenToGround = multiply3x3Matrix(translationMat, multiply3x3Matrix(elationMat, rotationMat))
+  // const screenToGround = createProjective3x3Matrix(rotation, translation, elation, scale)
+  // const screenToGround = createProjective3x3Matrix(rotation, translation, [0, near / far], scale)
 
-  renderGround(viewToGround)
+  renderGround(screenToGround)
 
   // Render the ground texture
   ctx.putImageData(viewGroundLayer, 0, 0)
@@ -136,10 +142,10 @@ const render = () => {
   // Camera plane debugging
   ctx.strokeStyle = 'red'
   ctx.beginPath()
-  const topLeft = projectVector2([-width, height], viewToGround, SCREEN_DIMENSIONS)
-  const topRight = projectVector2([width, height], viewToGround, SCREEN_DIMENSIONS)
-  const bottomRight = projectVector2([width, 0], viewToGround, SCREEN_DIMENSIONS)
-  const bottomLeft = projectVector2([-width, 0], viewToGround, SCREEN_DIMENSIONS)
+  const topLeft = projectVector2([-(width / 2), -100], screenToGround, SCREEN_DIMENSIONS)
+  const topRight = projectVector2([(width / 2), -100], screenToGround, SCREEN_DIMENSIONS)
+  const bottomRight = projectVector2([(width / 2), 0], screenToGround, SCREEN_DIMENSIONS)
+  const bottomLeft = projectVector2([-(width / 2), 0], screenToGround, SCREEN_DIMENSIONS)
   ctx.moveTo(...topLeft)
   ctx.lineTo(...topRight)
   ctx.lineTo(...bottomRight)
@@ -147,8 +153,11 @@ const render = () => {
   ctx.lineTo(...topLeft)
   ctx.stroke()
 
-  const fixedObject = [10, 100]
-  drawCircle(...projectVector2(fixedObject, viewToGround, SCREEN_DIMENSIONS), 5, 'red')
+  drawCircle(...projectVector2([0, 0], screenToGround, SCREEN_DIMENSIONS), 5, 'red')
+  // 100 units in front of the camera
+  drawCircle(...projectVector2([0, -100], screenToGround, SCREEN_DIMENSIONS), 5, 'orange')
+  // 100 units behind the camera
+  drawCircle(...projectVector2([0, 100], screenToGround, SCREEN_DIMENSIONS), 5, 'blue')
 }
 
 const update = (time) => {
@@ -165,13 +174,13 @@ const createControls = () => {
 
   const addControl = (control) => controls.appendChild(control)
 
-  // addControl(createSlider("elationX", elation[0], [-1, 1], 0.0001, (value) => elation[0] = value));
-  // addControl(createSlider("elationY", elation[1], [-1, 1], 0.0001, (value) => elation[1] = value));
+  addControl(createSlider('elationX', elation[0], [-0.01, 0.01], 0.0001, (value) => elation[0] = value))
+  addControl(createSlider('elationY', elation[1], [-0.01, 0.01], 0.0001, (value) => elation[1] = value))
   addControl(createSlider('translateX', translation[0], [-VIEW_WIDTH, VIEW_WIDTH], 1, (value) => translation[0] = value))
   addControl(createSlider('translateY', translation[1], [-VIEW_HEIGHT, VIEW_HEIGHT], 1, (value) => translation[1] = value))
   addControl(createSlider('rotation', rotation, [-360, 360], 1, value => rotation = value))
-  addControl(createSlider('near', near, [0, VIEW_HEIGHT * 2], 1, value => near = value))
-  addControl(createSlider('far', far, [0, VIEW_HEIGHT * 2], 1, value => far = value))
+  // addControl(createSlider('near', near, [0, VIEW_HEIGHT * 2], 1, value => near = value))
+  // addControl(createSlider('far', far, [0, VIEW_HEIGHT * 2], 1, value => far = value))
   addControl(createSlider('scale', scale, [0, 5], 0.1, value => scale = value))
   // addControl(createSlider("height", height, [0, 1000], 1, value => height = value));
   // addControl(createSlider("width", width, [0, 1000], 1, value => width = value));

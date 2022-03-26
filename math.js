@@ -24,6 +24,12 @@ export const createTranslationMatrix = (position) => [
   0, 0, 1
 ]
 
+export const createElationMatrix = (elation) => [
+  1, 0, 0,
+  0, 1, 0,
+  elation[0], elation[1], 1
+]
+
 export const createPerspectiveMatrix = (near, far) => [
   1, 0, 0,
   0, 1, 0,
