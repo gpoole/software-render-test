@@ -55,6 +55,15 @@ export const snapVector2 = (vec) => [
   Math.round(vec[1])
 ]
 
+export const multiply3x3Matrices = (...matrices) => {
+  // multiply matrices in reverse order
+  let out = matrices[0]
+  for (let i = 1; i < matrices.length; i++) {
+    out = multiply3x3Matrix(out, matrices[i])
+  }
+  return out
+}
+
 export const multiply3x3Matrix = (a, b) => {
   const size = 3
   const out = []
@@ -73,18 +82,12 @@ export const multiply3x3Matrix = (a, b) => {
 }
 
 // Projects input 2d vector to coordinates in the space specified by the output dimensions via the projection matrix
-export const projectVector2 = (vector, projectionMatrix, outputDimensions) => {
+export const projectVector2 = (vector, projectionMatrix) => {
   const [x, y, w] = vectorBy3x3Matrix(vector, projectionMatrix)
-  const [nx, ny] = [
+  return [
     x / w,
     y / w
   ]
-
-  return [nx, ny]
-  // return [
-  //   nx + (outputDimensions[0] / 2),
-  //   ny + (outputDimensions[1] / 2)
-  // ]
 }
 
 export const clamp = (value, min, max) => {

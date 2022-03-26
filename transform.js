@@ -4,7 +4,7 @@
 //   }
 // }
 
-import { createElationMatrix, createPerspectiveMatrix, createProjective3x3Matrix, createRotationMatrix, createScaleMatrix, createTranslationMatrix, DEG_2_RAD, multiply3x3Matrix, projectVector2, snapVector2 } from './math'
+import { createElationMatrix, createPerspectiveMatrix, createProjective3x3Matrix, createRotationMatrix, createScaleMatrix, createTranslationMatrix, DEG_2_RAD, multiply3x3Matrices, multiply3x3Matrix, projectVector2, snapVector2 } from './math'
 import { getPixel, loadImageData, setPixel } from './texture'
 
 const VIEW_WIDTH = 640
@@ -16,12 +16,14 @@ let canvas
 let ctx
 // let transform;
 let lastUpdateTime
-const elation = [0, 0]
+// This looks good but then the ground appears in the sky, there's something to do with the far plane distance
+// or maybe where on the screen we start drawing from that affects what this value can be
+const elation = [0, 0.0028]
 const translation = [0, 0]
 let rotation = 0
 const height = 300
 const width = VIEW_WIDTH
-let scale = 0.25
+let scale = 0.045
 // const fov = 45
 const near = 1
 const far = 200
@@ -99,51 +101,33 @@ const renderGround = (viewToGround) => {
   if (!groundTexture) {
     return
   }
-  // for (let y = VIEW_GROUND_STARTS_AT; y < VIEW_HEIGHT; y++) {
   for (let y = 0; y < VIEW_HEIGHT; y++) {
     for (let x = 0; x < VIEW_WIDTH; x++) {
-      const groundPosition = projectVector2([x, -y], viewToGround, groundTextureDimensions)
+      // Move away from the camera
+      const groundPosition = projectVector2([x, -y], viewToGround)
       const groundTexturePosition = snapVector2(groundPosition)
       const sampledPixel = getPixel(groundTexture, ...groundTexturePosition)
+      // Start at the bottom of the screen and draw up
       setPixel(viewGroundLayer, x, VIEW_HEIGHT - y, ...sampledPixel)
     }
   }
 }
 
-const multiply3x3Matrices = (...matrices) => {
-  // multiply matrices in reverse order
-  return matrices.slice(1).reduce((acc, matrix) => multiply3x3Matrix(acc, matrix), matrices[0])
-}
-
 const render = () => {
   ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT)
-
-  // const perspective = createPerspectiveMatrix(near, far)
-  // const translate = createTranslationMatrix(translation)
-  // const rotate = createRotationMatrix(rotation)
-  // const scaleMatrix = createScaleMatrix(scale)
-  // const perspective = createProjective3x3Matrix(rotation, translation, elation);
-  // const transform = [
-  //   // Affect x using the x and y components, add transform
-  //   1, 0, 0,
-  //   // Affect y using the x and y components, add transform
-  //   0, 1, 0,
-  //   // Affect w using the x and y components, add 1
-  //   0, 1, 0
-  // ];
-  // const viewToGround = multiply3x3Matrix(perspective, multiply3x3Matrix(translate, rotate))
   const translationMat = createTranslationMatrix(translation)
   const elationMat = createElationMatrix(elation)
   const rotationMat = createRotationMatrix(rotation)
-  // const screenToGround = multiply3x3Matrix(translationMat, multiply3x3Matrix(elationMat, rotationMat))
-  // const screenToGround = createProjective3x3Matrix(rotation, translation, elation, scale)
-  // const screenToGround = createProjective3x3Matrix(rotation, translation, [0, near / far], scale)
+  const scaleMat = createScaleMatrix(scale)
 
   const viewToCamera = multiply3x3Matrices(
+    // move to centre of the ground texture
+    createTranslationMatrix([groundTexture?.width / 2, groundTexture?.height / 2]),
+
+    // apply perspective transformations
     translationMat,
-    createTranslationMatrix([VIEW_WIDTH / 2, VIEW_HEIGHT / 2]),
     rotationMat,
-    createScaleMatrix(scale),
+    scaleMat,
     elationMat
   )
 
@@ -155,19 +139,16 @@ const render = () => {
   // Camera plane debugging
   ctx.strokeStyle = 'red'
   ctx.beginPath()
-  // const scaledViewToCamera = viewToCamera
-  // const viewToCamera = multiply3x3Matrix(viewToCamera)
 
   const halfWidth = VIEW_WIDTH / 2
-  const halfHeight = VIEW_WIDTH / 2
-  const top = -halfHeight
+  const top = -VIEW_HEIGHT
   const left = -halfWidth
   const right = halfWidth
-  const bottom = halfHeight
-  const topLeft = projectVector2([left, top], viewToCamera, SCREEN_DIMENSIONS)
-  const topRight = projectVector2([right, top], viewToCamera, SCREEN_DIMENSIONS)
-  const bottomRight = projectVector2([right, bottom], viewToCamera, SCREEN_DIMENSIONS)
-  const bottomLeft = projectVector2([left, right], viewToCamera, SCREEN_DIMENSIONS)
+  const bottom = 0
+  const topLeft = projectVector2([left, top], viewToCamera)
+  const topRight = projectVector2([right, top], viewToCamera)
+  const bottomRight = projectVector2([right, bottom], viewToCamera)
+  const bottomLeft = projectVector2([left, bottom], viewToCamera)
   ctx.moveTo(...topLeft)
   ctx.lineTo(...topRight)
   ctx.lineTo(...bottomRight)
@@ -175,12 +156,12 @@ const render = () => {
   ctx.lineTo(...topLeft)
   ctx.stroke()
 
-  drawCircle(...projectVector2([0, 0], viewToCamera, SCREEN_DIMENSIONS), 5, 'red')
+  drawCircle(...projectVector2([0, 0], viewToCamera), 5, 'red')
   // 100 units in front of the camera
-  drawCircle(...projectVector2([0, -100], viewToCamera, SCREEN_DIMENSIONS), 5, 'orange')
-  drawCircle(...projectVector2([0, -200], viewToCamera, SCREEN_DIMENSIONS), 5, 'orange')
+  drawCircle(...projectVector2([0, -100], viewToCamera), 5, 'orange')
+  drawCircle(...projectVector2([0, -200], viewToCamera), 5, 'orange')
   // 100 units behind the camera
-  drawCircle(...projectVector2([0, 100], viewToCamera, SCREEN_DIMENSIONS), 5, 'blue')
+  drawCircle(...projectVector2([0, 100], viewToCamera), 5, 'blue')
 }
 
 const update = (time) => {
@@ -204,7 +185,7 @@ const createControls = () => {
   addControl(createSlider('rotation', rotation, [-360, 360], 1, value => rotation = value))
   // addControl(createSlider('near', near, [0, VIEW_HEIGHT * 2], 1, value => near = value))
   // addControl(createSlider('far', far, [0, VIEW_HEIGHT * 2], 1, value => far = value))
-  addControl(createSlider('scale', scale, [0, 5], 0.1, value => scale = value))
+  addControl(createSlider('scale', scale, [0, 1], 0.01, value => scale = value))
   // addControl(createSlider("height", height, [0, 1000], 1, value => height = value));
   // addControl(createSlider("width", width, [0, 1000], 1, value => width = value));
   // addControl(createSlider("fov", fov, [0, 90], 1, value => fov = value));
