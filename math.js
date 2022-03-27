@@ -1,5 +1,17 @@
 export const DEG_2_RAD = Math.PI / 180
 
+export const MAT_IDENTITY = [
+  1, 0, 0,
+  0, 1, 0,
+  0, 0, 1
+]
+
+export const printMatrix = (matrix, cols = 3) => {
+  for (let i = 0; i < matrix.length; i += cols) {
+    console.log(matrix.slice(i, i + cols))
+  }
+}
+
 export const createProjective3x3Matrix = (rotation, translation, elation, scale = 1) => [
   scale * Math.cos(rotation * DEG_2_RAD), scale * -Math.sin(rotation * DEG_2_RAD), translation[0],
   scale * Math.sin(rotation * DEG_2_RAD), scale * Math.cos(rotation * DEG_2_RAD), translation[1],
@@ -81,6 +93,30 @@ export const multiply3x3Matrix = (a, b) => {
     }
   }
   return out
+}
+
+export const multiplyMatrixByScalar = (matrix, s) => {
+  const out = []
+  for (let i = 0; i < matrix.length; i++) {
+    out[i] = matrix[i] * s
+  }
+  return out
+}
+
+// Based on https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
+// with some operations pre-applied to calculate the adjoint
+export const invert3x3Matrix = (matrix) => {
+  const [m00, m01, m02, m10, m11, m12, m20, m21, m22] = matrix
+  const d00 = m11 * m22 - m12 * m21
+  const d01 = m10 * m22 - m20 * m12
+  const d02 = m10 * m21 - m20 * m11
+  const adjoint = [
+    d00, -(m01 * m22 - m21 * m02), m01 * m12 - m11 * m02,
+    -d01, m00 * m22 - m20 * m02, -(m00 * m12 - m10 * m02),
+    d02, -(m00 * m21 - m20 * m01), m00 * m11 - m10 * m01
+  ]
+  const inverseDeterminant = 1 / (m00 * d00 + m01 * d01 + m02 * d02)
+  return multiplyMatrixByScalar(adjoint, inverseDeterminant)
 }
 
 // Projects input 2d vector to coordinates in the space specified by the output dimensions via the projection matrix

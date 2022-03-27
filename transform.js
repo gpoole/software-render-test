@@ -4,7 +4,18 @@
 //   }
 // }
 
-import { createElationMatrix, createPerspectiveMatrix, createProjective3x3Matrix, createRotationMatrix, createScaleMatrix, createTranslationMatrix, DEG_2_RAD, multiply3x3Matrices, multiply3x3Matrix, projectVector2, snapVector2 } from './math'
+import {
+  createElationMatrix,
+  createRotationMatrix,
+  createScaleMatrix,
+  createTranslationMatrix,
+  DEG_2_RAD,
+  invert3x3Matrix,
+  multiply3x3Matrices,
+  printMatrix,
+  projectVector2,
+  snapVector2
+} from './math'
 import { getPixel, loadImageData, setPixel } from './texture'
 
 const VIEW_WIDTH = 640
@@ -121,7 +132,7 @@ const render = () => {
   const rotationMat = createRotationMatrix(rotation)
   const scaleMat = createScaleMatrix([scale, scale])
 
-  const viewToCamera = multiply3x3Matrices(
+  const viewToGround = multiply3x3Matrices(
     // move to centre of the ground texture
     createTranslationMatrix([-groundTexture?.width / 2, -groundTexture?.height / 2]),
 
@@ -132,10 +143,15 @@ const render = () => {
     elationMat
   )
 
-  renderGround(viewToCamera)
+  renderGround(viewToGround)
 
   // Render the ground texture
   ctx.putImageData(viewGroundLayer, 0, 0)
+
+  const groundToView = invert3x3Matrix(viewToGround)
+  const origin = projectVector2([0, 0], groundToView)
+  console.log([-origin[0], -origin[1]])
+  drawCircle(-origin[0], -origin[1], 5, 'green')
 
   // Camera plane debugging
   const halfWidth = VIEW_WIDTH / 2
@@ -143,10 +159,10 @@ const render = () => {
   const left = -halfWidth
   const right = halfWidth
   const bottom = 0
-  const topLeft = projectVector2([left, top], viewToCamera)
-  const topRight = projectVector2([right, top], viewToCamera)
-  const bottomRight = projectVector2([right, bottom], viewToCamera)
-  const bottomLeft = projectVector2([left, bottom], viewToCamera)
+  const topLeft = projectVector2([left, top], viewToGround)
+  const topRight = projectVector2([right, top], viewToGround)
+  const bottomRight = projectVector2([right, bottom], viewToGround)
+  const bottomLeft = projectVector2([left, bottom], viewToGround)
 
   ctx.strokeStyle = 'red'
   ctx.beginPath()
@@ -159,14 +175,14 @@ const render = () => {
 
   // console.log(top * elation[1])
   // console.log(topLeft)
-  ctx.fillText(`${top * elation[1]}`, ...topLeft)
+  // ctx.fillText(`${top * elation[1]}`, ...topLeft)
 
-  drawCircle(...projectVector2([0, 0], viewToCamera), 5, 'red')
+  drawCircle(...projectVector2([0, 0], viewToGround), 5, 'red')
   // 100 units in front of the camera
-  drawCircle(...projectVector2([0, -100], viewToCamera), 5, 'orange')
-  drawCircle(...projectVector2([0, -200], viewToCamera), 5, 'orange')
+  drawCircle(...projectVector2([0, -100], viewToGround), 5, 'orange')
+  drawCircle(...projectVector2([0, -200], viewToGround), 5, 'orange')
   // 100 units behind the camera
-  drawCircle(...projectVector2([0, 100], viewToCamera), 5, 'blue')
+  drawCircle(...projectVector2([0, 100], viewToGround), 5, 'blue')
 }
 
 const update = (time) => {
